@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.lxh.shequ.dao.DiscussPostMapper">
+
+    <sql id="selectFields">
+        id,user_id,title,content,type,status,create_time,comment_count,score
+    </sql>
+
+<!--    //此处对应数据库的参数名字-->
+    <sql id="insertFields">
+        user_id,title,content,type,status,create_time,comment_count,score
+    </sql>
+
+<!--    parameterType：参数为实体，名字为实体类-->
+    <insert id="insertDiscussPost" parameterType="DiscussPost">
+        insert into discuss_post(<include refid="insertFields"></include>)
+        values (#{userId},#{title},#{content},#{type},#{status},#{createTime},#{commentCount},#{score})
+    </insert>
+
+    <select id="selectDiscussPosts" resultType="DiscussPost">
+        select <include refid="selectFields"></include>
+        from discuss_post
+        where status !=2
+        <if test="userId != 0">
+            and user_id = #{userId}
+        </if>
+        order by type desc,create_time desc
+        limit #{offset}, #{limit}
+    </select>
+
+    <select id="selectDiscussPostRows" resultType="int">
+        select count(id)
+        from discuss_post
+        where status != 2
+        <if test="userId!=0">
+            and user_id = #{userId}
+        </if>
+    </select>
+
+<!--    //可以用关联查询，user表和discuss表，但是会产生耦合，因为场景用的不多-->
+    <select id="selectDiscussPostById" resultType="DiscussPost">
+        select <include refid="selectFields"></include>
+        from discuss_post
+        where id = #{id}
+    </select>
+
+    <!--新增评论时，更新评论数目，通过在实体类设置评论数目属性，之后查询评论数目可以不用在数据库遍历查询，而是直接获得。-->
+    <update id="updateCommentCount">
+        update discuss_post set comment_count = #{commentCount} where id = #{id}
+    </update>
+
+
+</mapper>

@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.lxh.shequ.dao.MessageMapper">
+
+    <sql id="selectFields">
+        id, from_id, to_id, conversation_id, content, status, create_time
+    </sql>
+
+    <sql id="insertFields">
+        from_id, to_id, conversation_id, content, status, create_time
+    </sql>
+
+<!--根据userId查询某个人的会话列表(分页),子查询查找最大的(Id),发送或者接收任何一方有userId都算，同时对会话Id分组-->
+<!--  status =2表示为删除的消息  -->
+    <select id="selectConversations" resultType="Message">
+        select <include refid="selectFields"></include>
+        from message
+        where id in (
+                select max(id) from message
+                where status != 2
+                and from_id != 1
+                and (from_id = #{userId} or to_id = #{userId})
+                group by conversation_id
+        )
+        order by id desc
+        limit #{offset}, #{limit}
+    </select>
+
+    <select id="selectConversationCount" resultType="int">
+        select count(m.maxid) from (
+            select max(id) as maxid from message
+            where status != 2
+            and from_id != 1
+            and (from_id = #{userId} or to_id = #{userId})
+            group by conversation_id
+        ) as m
+    </select>
+
+    <select id="selectLetters" resultType="Message">
+        select <include refid="selectFields"></include>
+        from message
+        where status != 2
+        and from_id != 1
+        and conversation_id = #{conversationId}
+        order by id desc
+        limit #{offset}, #{limit}
+    </select>
+
+    <select id="selectLetterCount" resultType="int">
+        select count(id)
+        from message
+        where status != 2
+        and from_id != 1
+        and conversation_id = #{conversationId}
+    </select>
+
+    <!-- 查询未读   -->
+    <select id="selectLetterUnreadCount" resultType="int">
+        select count(id)
+        from message
+        where status = 0
+        and from_id != 1
+        and to_id = #{userId}
+        <if test="conversationId!=null">
+            and conversation_id = #{conversationId}
+        </if>
+    </select>
+
+    <insert id="insertMessage" parameterType="Message" keyProperty="id">
+        insert into message(<include refid="insertFields"></include>)
+        values(#{fromId},#{toId},#{conversationId},#{content},#{status},#{createTime})
+    </insert>
+
+
+    <update id="updateStatus">
+        <if test="ids!=null and ids.size()>0">
+        update message set status = #{status}
+        where id in
+        <foreach collection="ids" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </if>
+    </update>
+
+    <!--查询最新消息-->
+    <select id="selectLatestNotice" resultType="Message">
+        select <include refid="selectFields"></include>
+        from message
+        where id in(
+            select max(id) from message
+            where status!= 2
+            and from_id = 1
+            and to_id =  #{userId}
+            and conversation_id = #{topic}
+        )
+    </select>
+
+    <!--查询某个主题包含的通知数量-->
+    <select id="selectNoticeCount" resultType="int">
+        select count(id)
+        from message
+        where status != 2
+        and from_id = 1
+        and to_id = #{userId}
+        and conversation_id = #{topic}
+    </select>
+
+    <!--查询未读的通知的数量-->
+    <select id="selectNoticeUnreadCount" resultType="int">
+        select count(id) from message
+        where status = 0
+        and from_id = 1
+        and to_id = #{userId}
+        <if test="topic!=null">
+            and conversation_id = #{topic}
+        </if>
+    </select>
+
+    <select id="selectNotices" resultType="Message">
+        select <include refid="selectFields"></include>
+        from message
+        where status != 2
+        and from_id = 1
+        and to_id = #{userId}
+        and conversation_id = #{topic}
+        order by create_time desc
+        limit #{offset}, #{limit}
+    </select>
+</mapper>
